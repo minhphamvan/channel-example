@@ -2,45 +2,50 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
+	"strings"
 	"time"
 )
 
-// producer: liên tục tạo ra một chuỗi số nguyên dựa trên bội số factor và đưa vào channel
-func Producer(factor int, out chan<- int) {
-	for i := 1; i <= 10; i++ {
-		time.Sleep(time.Second * 1)
-
-		val := i * factor
-		out <- val
-
-		fmt.Printf("Produced %v from factor %v\n", val, factor)
-	}
-}
-
-// consumer: liên tục lấy các số từ channel ra để print
-func Consumer(in <-chan int) {
-	for v := range in {
-		fmt.Println("==> Received:", v)
-	}
-}
-
 func main() {
-	ch := make(chan int, 64)
+	// Khởi tạo 1 publisher
+	p := NewPublisher(50, 1*time.Second)
 
-	// // tạo một chuỗi số với bội số 2
-	go Producer(2, ch)
+	// Đảm bảo p được đóng trước khi exit
+	defer p.Close()
 
-	// tạo một chuỗi số với bội số 3
-	go Producer(3, ch)
+	// `all` subscribe hết tất cả topic
+	chanAll := p.Subscribe()
 
-	// tạo consumer
-	go Consumer(ch)
+	// Subscribe các topic có "golang"
+	chanGolang := p.SubscribeTopic(func(v interface{}) bool {
+		if s, ok := v.(string); ok {
+			return strings.Contains(s, "golang")
+		}
 
-	// Ctrl+C
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	fmt.Printf("quit (%v)\n", <-sig)
+		return false
+	})
+
+	// Print những gì subscriber `all` nhận được
+	go func() {
+		for msg := range chanAll {
+			fmt.Println("==> Chan `all` received:", msg)
+		}
+	}()
+
+	// Print những gì subscriber `golang` nhận được
+	go func() {
+		for msg := range chanGolang {
+			fmt.Println("==> Chan `golang` received:", msg)
+		}
+	}()
+
+	for idx := 1; idx <= 10; idx++ {
+		time.Sleep(1 * time.Second)
+
+		// Publish ra 2 message
+		p.Publish(fmt.Sprintf("Hello world %d", idx))
+		p.Publish(fmt.Sprintf("Hello golang %d", idx))
+	}
+
+	time.Sleep(10 * time.Second)
 }

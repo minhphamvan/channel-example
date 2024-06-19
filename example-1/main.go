@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func producer(ch chan int, done chan struct{}) {
+func Producer(ch chan int, done chan struct{}) {
 	for i := 1; i <= 10; i++ {
 		time.Sleep(time.Second)
 
@@ -17,7 +17,7 @@ func producer(ch chan int, done chan struct{}) {
 	done <- struct{}{}
 }
 
-func consumer(ch <-chan int, done chan struct{}) {
+func Consumer(ch <-chan int, done chan struct{}) {
 	for i := range ch {
 		fmt.Println("===> Consumer: receiving", i)
 		fmt.Println()
@@ -30,8 +30,8 @@ func main() {
 	ch := make(chan int, 3)
 	done := make(chan struct{})
 
-	go producer(ch, done)
-	go consumer(ch, done)
+	go Producer(ch, done)
+	go Consumer(ch, done)
 
 	<-done
 	<-done
