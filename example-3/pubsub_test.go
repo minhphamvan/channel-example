@@ -23,7 +23,7 @@ func TestNewPublisher(t *testing.T) {
 	}
 }
 
-func TestPublisher_Subcribe_UnSubscribe(t *testing.T) {
+func TestPublisher_Subscribe_UnSubscribe(t *testing.T) {
 	buffer := 100
 	timeout := time.Second
 	p := NewPublisher(buffer, timeout)
@@ -76,5 +76,31 @@ func TestPublisher_Close(t *testing.T) {
 		// expected channel to be closed
 	default:
 		t.Error("expected subscriber channel to be closed")
+	}
+}
+
+func TestPublisher_SubscribeTopic(t *testing.T) {
+	p := NewPublisher(100, time.Second)
+
+	filterFunc := func(v interface{}) bool {
+		str, ok := v.(string)
+		if !ok {
+			return false
+		}
+		return str == "specific topic"
+	}
+
+	sub := p.SubscribeTopic(filterFunc)
+
+	go p.Publish("non-matching topic")
+	go p.Publish("specific topic")
+
+	select {
+	case msg := <-sub:
+		if msg != "specific topic" {
+			t.Errorf("expected 'specific topic', got %v", msg)
+		}
+	case <-time.After(time.Second):
+		t.Error("did not receive filtered message in time")
 	}
 }
